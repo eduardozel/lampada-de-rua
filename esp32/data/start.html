@@ -1,0 +1,132 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>flores v 1.09</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+	<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="topnav">
+        <h1>flores v 1.0.9</h1>
+    </div>
+<table border='1' align="center">
+<tr><td id='counter'  class = 'timer'>- - -</td>
+</tr>
+<tr>
+<td>
+    <select id="hr" class = "clock">
+        <option value="0"></option>
+        <option value= "60">01 : </option>
+        <option value="120">02 : </option>
+        <option value="180">03 : </option>
+        <option value="240">04 : </option>
+        <option value="300">05 : </option>
+        <option value="360">06 : </option>
+        <option value="420">07 : </option>
+        <option value="480">08 : </option>
+        <option value="540">09 : </option>
+        <option value="600">10 : </option>
+        <option value="660">11 : </option>
+	</select>
+    <select id="mn" class = "clock">
+        <option value= "0">00</option>
+        <option value="5"> 5</option>
+        <option value="15">15</option>
+        <option value="30">30</option>
+        <option value="45">45</option>
+	</select>
+</td>
+</tr>
+<tr style='display:none' id="brightnesstr">
+<td>
+    <select id="brightness" class = "clock">
+        <option value= "1"> 1</option>
+        <option value= "2"> 2</option>
+        <option value= "3"> 3</option>
+        <option value= "4"> 4</option>
+        <option value= "5"> 5</option>
+        <option value= "6"> 6</option>
+        <option value= "7"> 7</option>
+        <option value= "8"> 8</option>
+        <option value= "9"> 9</option>
+        <option value= "10">10</option>
+        <option value= "11">11</option>
+        <option value= "12">12</option>
+        <option value= "13">13</option>
+        <option value= "14">14</option>
+        <option value= "15">15</option>
+	</select>
+</td>
+</tr>
+<tr>
+<td>
+    <select id="mode" class = "clock">
+        <option value="white" selected>white</option>
+        <option value="rainbow">rainbow</option>
+        <option value="custom">custom</option>
+        <option value="profile">profile</option>
+        <option value="profileN">profileN</option>
+    </select>
+</td>
+</tr>
+<tr style='display:none' id="colors">
+<td>
+<input id="red"
+            type="number" 
+            class="number-input" 
+            min="0" 
+            max="255"
+>
+<input id="green"
+            type="number" 
+            class="number-input" 
+            min="0" 
+            max="255"
+>
+<input id="blue"
+            type="number" 
+            class="number-input" 
+            min="0" 
+            max="255"
+>
+</td>
+</tr>
+<tr>
+<td>
+    <button id="start" class ="btnStart">START</button>
+</td>
+</tr>
+<tr>
+<td>
+    <button id="stop" class ="btnStop">STOP</button>
+</td>
+</tr>
+<tr>
+<td>
+    <button id="b_toggle" class ="btnToggle">ON / OFF</button>
+</td>
+</tr>
+<tr>
+<td>
+    <select id="lampstart" class = "lampstart">
+        <option value="0" selected>off</option>
+        <option value="1">on</option>
+    </select>
+</td>
+</tr>
+
+<tr>
+  <td>
+    <input type="file" id="file" accept=".cfg,.txt">
+    <button id="upload" class="btnUpload">Upload LED Sequence</button>
+  </td>
+</tr>
+</table>
+<div id="statusMessage" style="display:none; background:#e0ffe0; border:1px solid #6c6; padding:10px; margin:10px; text-align:center;"></div>
+<script src="script.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,11 @@
+idf_component_register(
+    SRCS 
+	  "src/lamp.c"
+    INCLUDE_DIRS 
+	  "include"
+    REQUIRES 
+	  driver 
+	  freertos 
+	  json 
+	  WS2812
+)

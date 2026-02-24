@@ -1,0 +1,44 @@
+Альтернативная реализация
+
+Сделать task_counter создаваемой при включении лампы и удаляемой при выключении:
+
+// lamp.c
+static TaskHandle_t countdown_task_handle = NULL;
+
+void task_counter(void *arg) {
+while (total_seconds > 0) {
+vTaskDelay(pdMS_TO_TICKS(tick * 1000));
+total_seconds -= tick;
+if (total_seconds <= 0) {
+LAMP_turn_Off(); // Самоубийство (после этого auto stop)
+}
+}
+countdown_task_handle = NULL;
+vTaskDelete(NULL);
+}
+
+void start_timer_task(void) {
+if (countdown_task_handle != NULL) {
+vTaskDelete(countdown_task_handle);
+}
+xTaskCreate(task_counter, "countdown", 2048, NULL, 5, &countdown_task_handle);
+}
+
+void stop_timer_task(void) {
+if (countdown_task_handle != NULL) {
+vTaskDelete(countdown_task_handle);
+countdown_task_handle = NULL;
+}
+}
+
+void LAMP_turn_On(void){
+LAMP_turn_Off();
+total_seconds = current_duration;
+start_timer_task(); // Запустить отсчёт
+...
+}
+
+void LAMP_turn_Off(void){
+stop_timer_task(); // Остановить задачу
+...
+}

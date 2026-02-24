@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Схема байпаса VIN→VOUT с P‑MOSFET и компаратором LM393 + TL431
+     Включены: MP1584 (buck), предохранитель, конденсаторы, резисторы делителя,
+     TL431, LM393, P‑MOS, PNP, zener, DATA резистор, конденсаторы на VOUT.
+     Значения и обозначения указаны на схеме (рус). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <style>
+    .c { stroke:#000; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round }
+    .thin { stroke-width:1.2 }
+    .txt { font-family: Arial, Helvetica, sans-serif; font-size:14px; fill:#000 }
+    .label { font-family: Arial, Helvetica, sans-serif; font-size:12px; fill:#000 }
+    .box { stroke:#000; stroke-width:2; fill:#fff }
+    .part { font-family: Arial, Helvetica, sans-serif; font-size:12px; fill:#000; font-weight:bold }
+    .small { font-family: Arial, Helvetica, sans-serif; font-size:11px; fill:#000 }
+  </style>
+
+  <!-- Заголовок -->
+  <text x="20" y="28" class="txt">Байпас VIN → VOUT (P‑MOS + LM393 + TL431). Для 12 WS2812 (~0.6 A)</text>
+
+  <!-- VIN вход слева -->
+  <line x1="60" y1="80" x2="220" y2="80" class="c"/>
+  <text x="20" y="84" class="label">VIN (PD)</text>
+
+  <!-- Предохранитель -->
+  <g transform="translate(220,60)">
+    <rect x="0" y="0" width="60" height="40" class="box"/>
+    <text x="6" y="25" class="small">Предохранитель</text>
+    <text x="6" y="40" class="small">1 A</text>
+  </g>
+  <line x1="280" y1="80" x2="380" y2="80" class="c"/>
+
+  <!-- Ветка к MP1584 VIN -->
+  <line x1="380" y1="80" x2="520" y2="80" class="c"/>
+  <text x="420" y="64" class="label">→ VIN MP1584 (buck)</text>
+
+  <!-- MP1584 блок -->
+  <g transform="translate(500,40)">
+    <rect x="0" y="0" width="140" height="120" class="box"/>
+    <text x="8" y="18" class="part">MP1584</text>
+    <text x="8" y="36" class="small">VIN</text>
+    <text x="8" y="56" class="small">GND</text>
+    <text x="8" y="76" class="small">VOUT (регл. 5.00 V)</text>
+    <!-- выводы -->
+    <line x1="-40" y1="18" x2="0" y2="18" class="c"/>
+    <line x1="70" y1="76" x2="140" y2="76" class="c"/>
+    <text x="-100" y="22" class="label">(подключен к VIN)</text>
+  </g>
+
+  <!-- Провод от MP1584 OUT к VOUT далее -->
+  <line x1="640" y1="116" x2="840" y2="116" class="c"/>
+  <text x="740" y="100" class="label">MP1584 OUT → VOUT (5V)</text>
+
+  <!-- Вывод VOUT конденсаторы -->
+  <!-- Электролитический -->
+  <g transform="translate(840,96)">
+    <line x1="0" y1="20" x2="50" y2="20" class="c"/>
+    <rect x="50" y="4" width="24" height="32" class="c"/>
+    <text x="86" y="28" class="small">Cout 1000µF / 10V</text>
+  </g>
+  <!-- Керамика 0.1uF -->
+  <g transform="translate(840,140)">
+    <line x1="0" y1="10" x2="50" y2="10" class="c"/>
+    <line x1="50" y1="4" x2="50" y2="16" class="c"/>
+    <text x="86" y="18" class="small">0.1µF керамика</text>
+  </g>
+
+  <!-- VOUT линия к нагрузке WS2812 -->
+  <line x1="880" y1="116" x2="1100" y2="116" class="c"/>
+  <text x="980" y="100" class="label">VOUT → WS2812 (5V)</text>
+
+  <!-- VOUT GND -->
+  <line x1="640" y1="156" x2="840" y2="156" class="c"/>
+  <!-- GND символ -->
+  <g transform="translate(840,156)">
+    <line x1="0" y1="0" x2="24" y2="0" class="c"/>
+    <line x1="6" y1="6" x2="18" y2="6" class="c"/>
+    <line x1="10" y1="10" x2="14" y2="10" class="c"/>
+    <text x="36" y="6" class="small">GND общий</text>
+  </g>
+
+  <!-- P‑канальный MOSFET между VIN и VOUT (вверху) -->
+  <!-- расположим его сверху, от VIN (левая часть) к VOUT (правая) -->
+  <g transform="translate(360,10)">
+    <!-- S контакт (VIN) -->
+    <line x1="-200" y1="120" x2="-60" y2="120" class="c"/>
+    <text x="-250" y="124" class="label">VIN (после предохранителя)</text>
+    <!-- Мосфет тело -->
+    <rect x="-60" y="100" width="160" height="80" class="box"/>
+    <text x="-48" y="124" class="part">P‑MOS</text>
+    <text x="-48" y="144" class="small">S = VIN</text>
+    <text x="-48" y="164" class="small">D = VOUT</text>
+    <text x="40" y="144" class="small">G = GATE</text>
+    <!-- выводы -->
+    <line x1="100" y1="140" x2="240" y2="140" class="c"/>
+    <text x="246" y="144" class="label">→ VOUT</text>
+  </g>
+
+  <!-- GATE узел и резисторы (под P‑MOS) -->
+  <g transform="translate(440,200)">
+    <text x="-20" y="-10" class="small">GATE</text>
+
+    <!-- Rseries_g 100Ω -->
+    <line x1="0" y1="0" x2="80" y2="0" class="c"/>
+    <rect x="36" y="-12" width="48" height="24" class="box"/>
+    <text x="40" y="6" class="small">Rseries_g 100Ω</text>
+
+    <!-- Rg 100k к VOUT -->
+    <line x1="84" y1="0" x2="160" y2="-60" class="c"/>
+    <rect x="160" y="-80" width="70" height="36" class="box"/>
+    <text x="168" y="-58" class="small">Rg 100k</text>
+    <line x1="230" y1="-62" x2="400" y2="-62" class="c"/>
+    <text x="406" y="-58" class="small">→ VOUT</text>
+
+    <!-- Zener между G и S (6.2V) -->
+    <line x1="84" y1="0" x2="80" y2="60" class="c"/>
+    <g transform="translate(60,60)">
+      <line x1="0" y1="0" x2="40" y2="0" class="c"/>
+      <path d="M 40 0 l 8 -8 l 8 8 l 8 -8" class="c" />
+      <text x="60" y="-2" class="small">Zener 6.2V</text>
+      <!-- соединение к S (VIN) -->
+      <line x1="64" y1="-2" x2="160" y2="-2" class="c"/>
+      <text x="166" y="-2" class="small">→ S (VIN)</text>
+    </g>
+  </g>
+
+  <!-- Блок LM393 и TL431 (ниже) -->
+  <g transform="translate(340,320)">
+    <!-- LM393 box -->
+    <rect x="0" y="0" width="220" height="140" class="box"/>
+    <text x="8" y="20" class="part">LM393 (компаратор)</text>
+    <text x="12" y="44" class="small">VCC = VIN</text>
+    <text x="12" y="64" class="small">GND = общ</text>
+    <text x="12" y="84" class="small">+IN (неинв)</text>
+    <text x="12" y="104" class="small">-IN (инв) - 2.5V (TL431)</text>
+    <text x="12" y="124" class="small">OUT (open-collector)</text>
+
+    <!-- +IN от делителя -->
+    <line x1="220" y1="44" x2="380" y2="44" class="c"/>
+    <text x="384" y="48" class="small">+IN ← делитель R1/R2</text>
+
+    <!-- OUT к базе PNP через Rb -->
+    <line x1="110" y1="120" x2="110" y2="180" class="c"/>
+    <text x="116" y="152" class="small">OUT</text>
+  </g>
+
+  <!-- Делитель R1 R2 справа от LM393 -->
+  <g transform="translate(560,360)">
+    <text x="0" y="0" class="small">VIN</text>
+    <line x1="40" y1="4" x2="120" y2="4" class="c"/>
+    <rect x="120" y="-12" width="24" height="24" class="box"/>
+    <text x="148" y="8" class="small">R1 12k</text>
+    <line x1="144" y1="4" x2="144" y2="44" class="c"/>
+    <rect x="120" y="44" width="24" height="24" class="box"/>
+    <text x="148" y="64" class="small">R2 10k</text>
+    <line x1="144" y1="68" x2="144" y2="100" class="c"/>
+    <text x="156" y="86" class="small">→ GND</text>
+    <line x1="160" y1="20" x2="220" y2="20" class="c"/>
+    <text x="222" y="24" class="small">V+ (к +IN LM393)</text>
+  </g>
+
+  <!-- TL431 для 2.5V опоры снизу -->
+  <g transform="translate(560,460)">
+    <rect x="0" y="0" width="140" height="96" class="box"/>
+    <text x="8" y="18" class="part">TL431</text>
+    <text x="8" y="36" class="small">REF = 2.5V</text>
+    <text x="8" y="56" class="small">K Katod</text>
+    <text x="8" y="76" class="small">A Anod (GND)</text>
+
+    <!-- Rref от VIN к TL431 Katod -->
+    <line x1="140" y1="20" x2="260" y2="20" class="c"/>
+    <text x="264" y="24" class="small">Rref 2.2k → VIN</text>
+
+    <!-- Выход REF к -IN LM393 -->
+    <line x1="60" y1="8" x2="60" y2="-44" class="c"/>
+    <text x="64" y="-16" class="small">REF (2.5V) → -IN LM393</text>
+  </g>
+
+  <!-- PNP транзистор (подключение G ↔ VIN) -->
+  <g transform="translate(440,240)">
+    <circle cx="0" cy="0" r="18" class="c"/>
+    <text x="-14" y="4" class="small">Q1</text>
+    <text x="-34" y="-30" class="small">PNP MMBT2907A</text>
+    <!-- выводы: E (VIN) вверх, C (to G) вправо, B вниз -->
+    <line x1="0" y1="-60" x2="0" y2="-18" class="c"/>
+    <text x="-58" y="-64" class="small">E = VIN</text>
+    <line x1="18" y1="0" x2="96" y2="0" class="c"/>
+    <text x="100" y="4" class="small">C → G (через Rseries_g)</text>
+    <line x1="0" y1="18" x2="0" y2="80" class="c"/>
+    <text x="-120" y="86" class="small">B ← Rb 10k ← OUT LM393 (OC)</text>
+    <!-- Rpull 100k на базу к VIN -->
+    <line x1="-30" y1="20" x2="-120" y2="20" class="c"/>
+    <rect x="-150" y="8" width="56" height="24" class="box"/>
+    <text x="-142" y="26" class="small">Rpull 100k</text>
+    <text x="-150" y="-4" class="small">к VIN</text>
+  </g>
+
+  <!-- Соединение OUT LM393 → Rb → база PNP -->
+  <line x1="450" y1="450" x2="450" y2="300" class="c"/>
+  <line x1="450" y1="300" x2="460" y2="300" class="c"/>
+  <rect x="460" y="292" width="36" height="16" class="box"/>
+  <text x="468" y="304" class="small">Rb 10k</text>
+  <line x1="496" y1="300" x2="500" y2="300" class="c"/>
+  <text x="508" y="304" class="small">→ база Q1</text>
+
+  <!-- DATA линия: контроллер (слева) → резистор → WS2812 DATA -->
+  <g transform="translate(60,600)">
+    <text x="0" y="0" class="label">MCU DATA (3.3V)</text>
+    <line x1="0" y1="10" x2="260" y2="10" class="c"/>
+    <rect x="120" y="-6" width="44" height="24" class="box"/>
+    <text x="126" y="12" class="small">Rdata 330Ω</text>
+    <line x1="164" y1="10" x2="380" y2="10" class="c"/>
+    <text x="386" y="14" class="small">→ DATA вход первой WS2812</text>
+    <text x="126" y="34" class="small">(обязательно общий GND)</text>
+  </g>
+
+  <!-- Примечания блок -->
+  <g transform="translate(40,740)">
+    <rect x="0" y="0" width="1120" height="130" class="box"/>
+    <text x="8" y="20" class="part">Примечания:</text>
+    <text x="12" y="44" class="small">1) Проверяйте Vgs P‑MOS во всех режимах, не превышать Vgs_max.</text>
+    <text x="12" y="64" class="small">2) При VIN≈5V P‑MOS открыт и VOUT≈VIN (малое падение). При VIN&gt;≈5.6V LM393 закрывает байпас.</text>
+    <text x="12" y="84" class="small">3) Подключите большой конденсатор на VOUT (1000µF) и 0.1µF рядом с лентой.</text>
+    <text x="12" y="104" class="small">4) Настройте делитель R1/R2 и Rref (TL431) для точного порога; можно добавить гистерезис.</text>
+    <text x="12" y="124" class="small">5) MP1584: если VIN=5V модуль не держит 5V — используйте buck‑boost или держите VIN&gt;6V.</text>
+  </g>
+</svg>

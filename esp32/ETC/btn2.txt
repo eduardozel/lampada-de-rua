@@ -1,0 +1,61 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+
+// Определения пинов
+#define LED_PIN GPIO_NUM_8  // LED на GPIO8
+#define BTN_PIN GPIO_NUM_5  // TTP223 SIG на GPIO5
+
+// Тег для логов
+static const char *TAG = "TTP223_LED";
+
+// Глобальная переменная для состояния LED (toggle)
+static bool led_state = false;
+
+// Функция обработчика прерывания (ISR)
+static void IRAM_ATTR gpio_isr_handler(void *arg) {
+    // Toggle состояния LED (только на rising edge это сработает)
+    led_state = !led_state;
+    gpio_set_level(LED_PIN, led_state);
+    
+    // Опционально: можно добавить debounce (задержку), но TTP223 обычно чистый
+    // ets_delay_us(100000); // 100ms debounce, если нужно
+}
+
+// Основная функция
+void app_main(void) {
+    // Настройка LED как выход
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << LED_PIN),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+    gpio_set_level(LED_PIN, 0);  // LED изначально выключен
+
+    // Настройка кнопки TTP223 как вход с прерыванием
+    io_conf.pin_bit_mask = (1ULL << BTN_PIN);
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;    // Внутренняя подтяжка вверх (если TTP223 Active High)
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.intr_type = GPIO_INTR_POSEDGE;      // Прерывание на восходящий фронт (rising edge) — начало касания
+    gpio_config(&io_conf);
+
+    // Установка сервиса прерываний
+    gpio_install_isr_service(0);  // Флаги по умолчанию
+
+    // Добавление обработчика прерывания для пина кнопки
+    gpio_isr_handler_add(BTN_PIN, gpio_isr_handler, NULL);
+
+    ESP_LOGI(TAG, "Система готова. Касайтесь TTP223 для toggle LED.");
+
+    // Бесконечный цикл (можно добавить логи или другие задачи)
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Задержка 1 сек, чтобы не нагружать CPU
+        ESP_LOGI(TAG, "LED state: %d", led_state);
+    }
+}

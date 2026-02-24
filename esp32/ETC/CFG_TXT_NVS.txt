@@ -1,0 +1,629 @@
+зачитать записать переменную  
+typedef enum {
+    white,
+    rainbow,
+    color
+} LAMP_state_t;
+static LAMP_state_t lamp_state ;
+
+
+
+Ниже — два варианта: запись/чтение через файл (как в ваших примерах) и через NVS (рекомендуемый способ для настроек в ESP‑IDF). Оба варианта дают вам функции для сохранения и восстановления значения lamp_state.
+
+1) Файл (текстовый формат "lamp_state=white")
+Код (вставьте в ваш .c, подключите нужные заголовки):
+
+#include <stdio.h>
+#include <string.h>
+#include "esp_log.h"
+
+#define TAG "lamp"
+
+typedef enum {
+    white,
+    rainbow,
+    color
+} LAMP_state_t;
+
+static LAMP_state_t lamp_state = white;
+
+static const char *lamp_state_to_str(LAMP_state_t s)
+{
+    switch (s) {
+    case white:   return "white";
+    case rainbow: return "rainbow";
+    case color:   return "color";
+    default:      return "unknown";
+    }
+}
+
+static int lamp_state_from_str(const char *s, LAMP_state_t *out)
+{
+    if (!s || !out) return -1;
+    if (strcasecmp(s, "white") == 0) {
+        *out = white;
+    } else if (strcasecmp(s, "rainbow") == 0) {
+        *out = rainbow;
+    } else if (strcasecmp(s, "color") == 0) {
+        *out = color;
+    } else {
+        /* попробовать прочитать как число: */
+        char *end;
+        long v = strtol(s, &end, 10);
+        if (end != s) {
+            if (v == white || v == rainbow || v == color) {
+                *out = (LAMP_state_t)v;
+            } else {
+                return -1;
+            }
+        } else {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/* Сохранить в текстовый файл (перезаписывает) */
+int save_lamp_state_to_file(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) {
+        ESP_LOGE(TAG, "fopen for write failed");
+        return -1;
+    }
+    fprintf(f, "lamp_state=%s\n", lamp_state_to_str(lamp_state));
+    fclose(f);
+    ESP_LOGI(TAG, "Saved lamp_state=%s", lamp_state_to_str(lamp_state));
+    return 0;
+}
+
+/* Загрузить из текстового файла */
+int load_lamp_state_from_file(const char *path)
+{
+    char line[128];
+    FILE *f = fopen(path, "r");
+    if (!f) {
+        ESP_LOGW(TAG, "fopen for read failed (file may not exist)");
+        return -1;
+    }
+
+    while (fgets(line, sizeof(line), f)) {
+        /* удалить завершающий перевод строки */
+        char *nl = strchr(line, '\n');
+        if (nl) *nl = '\0';
+
+        /* найти ключ=значение */
+        char *eq = strchr(line, '=');
+        if (!eq) continue;
+        *eq = '\0';
+        const char *key = line;
+        const char *val = eq + 1;
+
+        /* убрать пробелы вокруг (простая обрезка) */
+        while (*key == ' ' || *key == '\t') key++;
+        while (*val == ' ' || *val == '\t') val++;
+
+        if (strcasecmp(key, "lamp_state") == 0) {
+            LAMP_state_t tmp;
+            if (lamp_state_from_str(val, &tmp) == 0) {
+                lamp_state = tmp;
+                ESP_LOGI(TAG, "Loaded lamp_state=%s", lamp_state_to_str(lamp_state));
+                fclose(f);
+                return 0;
+            } else {
+                ESP_LOGW(TAG, "Unknown lamp_state value: %s", val);
+            }
+        }
+    }
+
+    fclose(f);
+    return -1;
+}
+
+Примечания:
+- Этот способ читает/пишет текст, удобен для отладки.
+- Функция lamp_state_from_str поддерживает и текстовые имена, и числовое представление.
+- Обязательно использовать подходящую файловую систему (SPIFFS, FAT, LittleFS и т.д.) и монтировать её перед доступом к файлам.
+---------------
+2) NVS (рекомендуемый для настроек в ESP‑IDF)
+Сохраняем enum как int32 в NVS. Требует включённого NVS и инициализации (nvs_flash_init()).
+
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_log.h"
+
+#define NVS_NAMESPACE "storage"
+#define TAG "lamp"
+
+typedef enum { white, rainbow, color } LAMP_state_t;
+static LAMP_state_t lamp_state = white;
+
+int save_lamp_state_to_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return -1;
+    }
+    err = nvs_set_i32(h, "lamp_state", (int32_t)lamp_state);
+    if (err == ESP_OK) err = nvs_commit(h);
+    nvs_close(h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_set/commit failed: %s", esp_err_to_name(err));
+        return -1;
+    }
+    ESP_LOGI(TAG, "Saved lamp_state=%d", lamp_state);
+    return 0;
+}
+
+int load_lamp_state_from_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return -1;
+    }
+    int32_t v = 0;
+    err = nvs_get_i32(h, "lamp_state", &v);
+    nvs_close(h);
+    if (err == ESP_OK) {
+        if (v == white || v == rainbow || v == color) {
+            lamp_state = (LAMP_state_t)v;
+            ESP_LOGI(TAG, "Loaded lamp_state=%d", lamp_state);
+            return 0;
+        } else {
+            ESP_LOGW(TAG, "nvs value out of range: %d", v);
+            return -1;
+        }
+    } else {
+        ESP_LOGW(TAG, "nvs_get_i32: %s", esp_err_to_name(err));
+        return -1;
+    }
+}
+
+Преимущества NVS:
+- Надёжное хранилище параметров,
+- Поддержка атомарного коммита и энергонезависимости,
+- Проще, чем управление файлами.
+
+Что выбрать:
+- Для настроек и состояния устройства — NVS рекомендовано.
+- Для простого human-readable файла или совместимости с внешним редактором — текстовый файл.
+
+Если нужно — могу прислать минимальный пример, где всё собирается вместе: mount SPIFFS + сохранение/загрузка файла, или полный пример инициализации NVS и вызова функций.
+=====================
+Ниже — полный самодостаточный пример для ESP‑IDF: инициализация NVS,
+ функции сохранения/загрузки enum-переменной lamp_state и пример вызова в app_main. 
+Код включает обработку распространённых ошибок NVS (например, необходимость очистки хранилища при изменении формата).
+
+Вставьте в ваш проект (например, в main/lamp_nvs.c), соберите и загрузите на плату.
+
+Код:
+```c
+#include <stdio.h>
+#include <stdint.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_log.h"
+
+static const char *TAG = "lamp_nvs";
+#define NVS_NAMESPACE "storage"
+#define NVS_KEY "lamp_state"
+
+typedef enum {
+    white = 0,
+    rainbow = 1,
+    color = 2
+} LAMP_state_t;
+
+static LAMP_state_t lamp_state = white;
+
+static const char* lamp_state_to_str(LAMP_state_t s)
+{
+    switch (s) {
+    case white:   return "white";
+    case rainbow: return "rainbow";
+    case color:   return "color";
+    default:      return "unknown";
+    }
+}
+
+/* Сохранить lamp_state в NVS */
+esp_err_t save_lamp_state_to_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = nvs_set_i32(h, NVS_KEY, (int32_t)lamp_state);
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+
+    nvs_close(h);
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Saved lamp_state=%s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+    } else {
+        ESP_LOGE(TAG, "Failed to save lamp_state: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+/* Загрузить lamp_state из NVS */
+esp_err_t load_lamp_state_from_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "nvs_open (read) failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    int32_t val = 0;
+    err = nvs_get_i32(h, NVS_KEY, &val);
+    nvs_close(h);
+
+    if (err == ESP_OK) {
+        if (val >= white && val <= color) {
+            lamp_state = (LAMP_state_t)val;
+            ESP_LOGI(TAG, "Loaded lamp_state=%s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+            return ESP_OK;
+        } else {
+            ESP_LOGW(TAG, "Loaded value out of range: %d", val);
+            return ESP_ERR_INVALID_ARG;
+        }
+    } else if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(TAG, "lamp_state not found in NVS, using default=%s (%d)",
+                 lamp_state_to_str(lamp_state), lamp_state);
+        return err;
+    } else {
+        ESP_LOGW(TAG, "nvs_get_i32 failed: %s", esp_err_to_name(err));
+        return err;
+    }
+}
+
+void app_main(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // При необходимости очистить хранилище и реинициализировать
+        ESP_LOGW(TAG, "NVS partition needs erase/upgrade, erasing...");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(err);
+    ESP_LOGI(TAG, "NVS initialized");
+
+    // Попытка загрузить состояние (если нет — останется значение по умолчанию)
+    load_lamp_state_from_nvs();
+
+    // Демонстрация: переключаем состояние на следующее и сохраняем
+    lamp_state = (LAMP_state_t)((lamp_state + 1) % 3);
+    ESP_LOGI(TAG, "Switching lamp_state -> %s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+
+    err = save_lamp_state_to_nvs();
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "save failed: %s", esp_err_to_name(err));
+    }
+
+    // Далее можно использовать lamp_state в приложении
+    while (1) {
+        ESP_LOGI(TAG, "Current lamp_state = %s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+```
+
+Короткие пояснения:
+- NVS_NAMESPACE и NVS_KEY можно поменять под ваши нужды.
+- enum сохраняется как int32 (nvs_set_i32 / nvs_get_i32). Это простая и надёжная практика для enum.
+- При изменении структуры NVS или при возникновении ошибок init иногда требуется вызвать nvs_flash_erase(), что показано в примере.
+- Проверяется диапазон загруженного значения, чтобы избежать неправильных значений в enum.
+- Для реального приложения возможно лучше делать сохранение не при каждом изменении, а пакетировать/делать commit реже (для уменьшения износа флеш-памяти).
+
+Если нужно, могу адаптировать пример для вызова из другого модуля (без app_main), добавить mutex для многопоточного доступа или сделать API с callback/событиями при изменении состояния.
+=================
+Добавил в пример структуру rgb_t и переменную custom_color, а также функции сохранения/загрузки цвета в NVS (как blob). В app_main вызываются загрузка состояния и цвета, затем демонстративно переключается состояние и при необходимости сохраняются оба значения.
+
+Полный обновлённый код:
+
+```c
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_log.h"
+
+static const char *TAG = "lamp_nvs";
+#define NVS_NAMESPACE "storage"
+#define NVS_KEY_STATE "lamp_state"
+#define NVS_KEY_COLOR "custom_color"
+
+typedef enum {
+    white = 0,
+    rainbow = 1,
+    color = 2
+} LAMP_state_t;
+
+typedef struct {
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+} rgb_t;
+
+/* Переменные по умолчанию */
+static LAMP_state_t lamp_state = white;
+static rgb_t custom_color = { 255, 255, 255 }; // по умолчанию белый
+
+static const char* lamp_state_to_str(LAMP_state_t s)
+{
+    switch (s) {
+    case white:   return "white";
+    case rainbow: return "rainbow";
+    case color:   return "color";
+    default:      return "unknown";
+    }
+}
+
+static void rgb_log(const rgb_t *c)
+{
+    ESP_LOGI(TAG, "custom_color = R:%u G:%u B:%u", c->red, c->green, c->blue);
+}
+
+/* Сохранить lamp_state в NVS */
+esp_err_t save_lamp_state_to_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = nvs_set_i32(h, NVS_KEY_STATE, (int32_t)lamp_state);
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+
+    nvs_close(h);
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Saved lamp_state=%s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+    } else {
+        ESP_LOGE(TAG, "Failed to save lamp_state: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+/* Загрузить lamp_state из NVS */
+esp_err_t load_lamp_state_from_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "nvs_open (read) failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    int32_t val = 0;
+    err = nvs_get_i32(h, NVS_KEY_STATE, &val);
+    nvs_close(h);
+
+    if (err == ESP_OK) {
+        if (val >= white && val <= color) {
+            lamp_state = (LAMP_state_t)val;
+            ESP_LOGI(TAG, "Loaded lamp_state=%s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+            return ESP_OK;
+        } else {
+            ESP_LOGW(TAG, "Loaded value out of range: %d", val);
+            return ESP_ERR_INVALID_ARG;
+        }
+    } else if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(TAG, "lamp_state not found in NVS, using default=%s (%d)",
+                 lamp_state_to_str(lamp_state), lamp_state);
+        return err;
+    } else {
+        ESP_LOGW(TAG, "nvs_get_i32 failed: %s", esp_err_to_name(err));
+        return err;
+    }
+}
+
+/* Сохранить custom_color в NVS как blob */
+esp_err_t save_custom_color_to_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    err = nvs_set_blob(h, NVS_KEY_COLOR, &custom_color, sizeof(custom_color));
+    if (err == ESP_OK) {
+        err = nvs_commit(h);
+    }
+    nvs_close(h);
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Saved custom_color");
+        rgb_log(&custom_color);
+    } else {
+        ESP_LOGE(TAG, "Failed to save custom_color: %s", esp_err_to_name(err));
+    }
+    return err;
+}
+
+/* Загрузить custom_color из NVS */
+esp_err_t load_custom_color_from_nvs(void)
+{
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "nvs_open (read) failed: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    size_t required_size = sizeof(custom_color);
+    err = nvs_get_blob(h, NVS_KEY_COLOR, &custom_color, &required_size);
+    nvs_close(h);
+
+    if (err == ESP_OK) {
+        if (required_size == sizeof(custom_color)) {
+            ESP_LOGI(TAG, "Loaded custom_color from NVS");
+            rgb_log(&custom_color);
+            return ESP_OK;
+        } else {
+            ESP_LOGW(TAG, "Blob size mismatch: expected %zu got %zu", sizeof(custom_color), required_size);
+            return ESP_ERR_INVALID_SIZE;
+        }
+    } else if (err == ESP_ERR_NVS_NOT_FOUND) {
+        ESP_LOGI(TAG, "custom_color not found in NVS, using default");
+        rgb_log(&custom_color);
+        return err;
+    } else {
+        ESP_LOGW(TAG, "nvs_get_blob failed: %s", esp_err_to_name(err));
+        return err;
+    }
+}
+
+void app_main(void)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // При необходимости очистить хранилище и реинициализировать
+        ESP_LOGW(TAG, "NVS partition needs erase/upgrade, erasing...");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(err);
+    ESP_LOGI(TAG, "NVS initialized");
+
+    // Попытка загрузить состояние и цвет (если нет — останутся значения по умолчанию)
+    load_lamp_state_from_nvs();
+    load_custom_color_from_nvs();
+
+    // Демонстрация: переключаем состояние на следующее.
+    lamp_state = (LAMP_state_t)((lamp_state + 1) % 3);
+    ESP_LOGI(TAG, "Switching lamp_state -> %s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+
+    // Если новое состояние - color, демонстративно меняем custom_color
+    if (lamp_state == color) {
+        custom_color.red = 128;
+        custom_color.green = 64;
+        custom_color.blue = 255;
+        ESP_LOGI(TAG, "Setting new custom_color for 'color' state");
+        rgb_log(&custom_color);
+
+        // Сохраняем и состояние, и цвет
+        save_lamp_state_to_nvs();
+        save_custom_color_to_nvs();
+    } else {
+        // Сохраняем только состояние
+        save_lamp_state_to_nvs();
+    }
+
+    // Далее можно использовать lamp_state и custom_color в приложении
+    while (1) {
+        ESP_LOGI(TAG, "Current lamp_state = %s (%d)", lamp_state_to_str(lamp_state), lamp_state);
+        rgb_log(&custom_color);
+        vTaskDelay(pdMS_TO_TICKS(5000));
+    }
+}
+```
+
+Короткие пояснения и замечания:
+- Цвет сохраняется как бинарный blob (nvs_set_blob / nvs_get_blob). Это удобно и компактно. Альтернатива — сохранять 3 отдельных u8 значения.
+- При изменении структуры rgb_t (размера полей) старые blob-данные в NVS станут несовместимы — при этом nvs_get_blob вернёт размер/ошибку. Учтите версионирование формата, если планируется изменение.
+- Не злоупотребляйте частыми commit() — это изнашивает флеш. Сохраняйте реже (например, при явном изменении настроек с debounce или при выключении).
+- Если нужна совместимость с текстовым конфигом (чтобы можно было править вручную), можно также реализовать сохранение/чтение в текстовом виде (hex или "R,G,B").
+*********************
+Коротко — что такое NVS (Non-Volatile Storage) в ESP‑IDF:
+- Это встроённый key/value‑хранилище на flash, предназначенное для параметров конфигурации и небольших постоянных данных.
+- Поддерживает простые типы (int32/int64, uint32/uint64, строки) и blob (произвольные байты).
+- Работает поверх механизма wear‑levelling, поэтому безопаснее для частых записей, чем прямое запись в raw flash.
+- Для работы нужно инициализировать nvs_flash_init().
+
+Основные понятия и API (упрощённо)
+- nvs_flash_init() — инициализация NVS (вызывать в app_main до любых операций).
+  - Может вернуть ESP_ERR_NVS_NO_FREE_PAGES или ESP_ERR_NVS_NEW_VERSION_FOUND — тогда обычно нужно вызвать nvs_flash_erase() и снова nvs_flash_init().
+- nvs_open(namespace, mode, &handle) — открыть «контейнер» (namespace). mode: NVS_READONLY или NVS_READWRITE.
+  - namespace — строка (обычно "storage" или другое). Разделяет ключи логически.
+- nvs_set_i32 / nvs_set_u32 / nvs_set_i64 / nvs_set_u64 / nvs_set_str / nvs_set_blob — сохраняют значение в рабочую копию.
+  - nvs_set_* только изменяет RAM/буфер; физическая запись во flash происходит при nvs_commit().
+- nvs_get_i32 / ... / nvs_get_str / nvs_get_blob — чтение значения. При попытке прочитать ключа, которого нет, вернётся ESP_ERR_NVS_NOT_FOUND. При несоответствии типов — ESP_ERR_NVS_TYPE_MISMATCH.
+- nvs_commit(handle) — сбросить изменения в flash (физическая запись). Дорогая операция (износ флеша).
+- nvs_erase_key(handle, key) / nvs_erase_all(handle) — удалить ключ(и) (требует commit).
+- nvs_close(handle) — закрыть handle, освобождает ресурсы.
+
+Типичные ошибки и поведение
+- Забыл вызвать nvs_commit() — данные не сохранятся при перезагрузке.
+- Чтение неправильным типом — ESP_ERR_NVS_TYPE_MISMATCH.
+- Ключ не найден — ESP_ERR_NVS_NOT_FOUND.
+- При несовместимости партиции/версии — nvs_flash_init() может вести к ошибкам; надо делать erase и reinit.
+- nvs_get_blob: сначала можно вызвать с NULL буфером, чтобы получить нужный size (required_size), затем выделить буфер и повторить вызов.
+
+Пример типового потока для записи и чтения
+- Инициализация:
+  - esp_err_t err = nvs_flash_init();
+  - проверить и при необходимости nvs_flash_erase() + повторный nvs_flash_init().
+- Запись:
+  - nvs_open("storage", NVS_READWRITE, &h);
+  - nvs_set_i32(h, "lamp_state", value);
+  - nvs_set_blob(h, "color", &rgb, sizeof(rgb));
+  - nvs_commit(h); // обязательно, чтобы сохранить на flash
+  - nvs_close(h);
+- Чтение:
+  - nvs_open("storage", NVS_READONLY, &h);
+  - nvs_get_i32(h, "lamp_state", &v);
+  - size = sizeof(rgb); nvs_get_blob(h, "color", &rgb, &size);
+  - nvs_close(h);
+
+Ограничения и рекомендации
+- Размер ключа и namespace: в документации указан предел имени ключа (обычно ≤ 15 символов) — не делайте очень длинных имён.
+- Blob имеет ограничение по размеру в рамках NVS partition; для больших бинарных данных лучше использовать файловую систему (SPIFFS, FAT, LittleFS).
+- Частые коммиты износят флеш. Старайтесь:
+  - группировать записи и делать commit реже;
+  - при частых изменениях использовать RAM‑буфер и сохранять при явных событиях (изменение настроек, graceful shutdown).
+- Храните версию формата (например, ключ "cfg_ver"), чтобы при изменении структуры данных можно было корректно мигрировать или очистить NVS.
+- Всегда проверяйте возвращаемые esp_err_t и логируйте ошибки.
+- При полной несовместимости данных используйте nvs_flash_erase() (эта операция удалит всё в NVS partition).
+
+Когда использовать NVS, а когда нет
+- Использовать NVS:
+  - небольшие настройки (wifi creds, режимы, последние состояния, цвет LED и т.п.);
+  - данные, которые должны пережить перезагрузку и обновление прошивки.
+- Не использовать NVS:
+  - для больших данных (больше нескольких КБ);
+  - для очень частых логов/трейсов — лучше файловая система с циклическим логированием.
+
+Советы по миграции и совместимости
+- Храните версию структуры (int key "cfg_ver"). При старой версии — читать старые ключи и выполнять миграцию или очищать NVS.
+- При смене типов ключей (например, раньше хранили строку, теперь blob) — либо считывайте старое значение раньше, либо удаляйте ключи (nvs_erase_key) перед записью нового типа.
+
+Пример кода (микро‑шаблон)
+- Запись:
+  - nvs_open(..., NVS_READWRITE, &h);
+  - nvs_set_i32(h, "lamp_state", (int32_t)lamp_state);
+  - nvs_commit(h);
+  - nvs_close(h);
+- Чтение:
+  - nvs_open(..., NVS_READONLY, &h);
+  - esp_err_t err = nvs_get_i32(h, "lamp_state", &v);
+  - if (err == ESP_OK) { /* ok */ } else if (err == ESP_ERR_NVS_NOT_FOUND) { /* дефолт */ }
+  - nvs_close(h);
+
+Если нужно, могу:
+- показать шаблон миграции с ключом версии,
+- показать шаблон безопасного чтения blob (с предварительным запросом размера),
+- или адаптировать рекомендации под вашу задачу (напр., частота сохранения custom_color при управлении RGB).

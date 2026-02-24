@@ -1,0 +1,169 @@
+        html {
+            font-family: "Times New Roman", Times, serif;
+            text-align: center;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        h1 {
+            font-size: 15px;
+            color: white;
+            margin: 0;
+            line-height: 1.2;
+            padding: 3px 0;
+        }
+
+        .topnav {
+            overflow: hidden;
+            background-color: #04296d;
+        }
+
+		.state {
+			font-size: 1.5rem;
+			color: #120707;
+			font-weight: bold;
+		}
+
+        .btnStart {
+            padding: 15px 50px;
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            color: #fff;
+            background-color: #0ffa6d;
+            border: 2px solid #0ffa6d;
+            border-radius: 5px;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+			transition: background-color 0.3s ease; /* Плавный переход цвета за 0.3 секунды */
+			cursor: pointer; /* указатель мыши как рука */
+		}
+
+		.btnStart:hover {
+			background-color: #0cd85a;
+		}
+
+        .btnToggle {
+            padding: 15px 50px;
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            color: #fff;
+            background-color: #0faa6d;
+            border: 2px solid #0ffa6d;
+            border-radius: 5px;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+			transition: background-color 0.3s ease; /* Плавный переход цвета за 0.3 секунды */
+			cursor: pointer; /* указатель мыши как рука */
+		}
+
+        .btnToggle:active {
+            background-color: #fa0f0f;
+            transform: translateY(2px);
+        }
+
+        .btnStop {
+            padding: 15px 50px;
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            color: #fff;
+            background-color: #fa0f0f;
+            border: 2px solid #fa0f0f;
+            border-radius: 5px;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        }
+
+		.combo, .timer, .clock {
+			padding: 10px 10px; /* Объединено для похожих классов */
+			font-size: 24px;
+			font-weight: bold;
+			text-align: center;
+			outline: none;
+			color: #07156d;
+			background-color: #F8F7F9;
+			border: 2px solid #0ffa6d; /* Исправлено */
+			border-radius: 5px;
+			-webkit-touch-callout: none;
+			-webkit-user-select: none;
+			-khtml-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
+			-webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+		}
+		
+		.number-input {
+            width: 80px;
+            padding: 12px;
+			text-align: right;
+			font-weight: bold;
+            font-size: 24px;
+			background-color: #F8F7F9;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        .number-input:focus {
+            outline: none;
+            border-color: #2980b9;
+            box-shadow: 0 0 8px rgba(52, 152, 219, 0.5);
+        }
+		
+		.label {
+			font-weight: bold;
+            font-size: 16px;
+			margin-right: 5px;
+		}
+
+		#red {
+		  background-color: #ffcccc;
+		}
+
+		#green {
+		  background-color: #ccffcc;
+		}
+
+		#blue {
+		  background-color: #ccccff;
+		}
+		
+		
+		.btnUpload {
+          background-color: #4CAF50;
+          color: white;
+          padding: 10px 20px;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 16px;
+          margin-top: 10px;
+        }
+
+        .btnUpload:hover {
+          background-color: #45a049;
+        }
+
+        input[type="file"] {
+          margin: 12px 0;
+        }

@@ -1,0 +1,200 @@
+
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="UTF-8">
+                            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+							<style>
+								body {
+									background-color: white; /* Ensure the iframe has a white background */
+								}
+
+								
+							</style>
+                        </head>
+                        <body>
+                            <!DOCTYPE HTML>
+<html>
+<head>
+    <title>Vase Server v 1.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Vase Server</h1>
+    <div class="state">Timer: 0:00</div> <!-- Пример элемента для состояния/таймера -->
+
+    <!-- Примеры элементов UI (адаптируйте) -->
+    <label>Duration (minutes): <input id="durationInput" type="number" value="5"></label><br>
+    <label>Mode: 
+        <select id="modeSelect">
+            <option value="white">White</option>
+            <option value="rainbow">Rainbow</option>
+            <option value="custom">Custom</option>
+        </select>
+    </label><br>
+    <label>Brightness: <input id="brightnessInput" type="number" min="1" max="10" value="4"></label><br>
+    <label>Red: <input id="redInput" type="number" min="0" max="255" value="0"></label><br>
+    <label>Green: <input id="greenInput" type="number" min="0" max="255" value="0"></label><br>
+    <label>Blue: <input id="blueInput" type="number" min="0" max="255" value="0"></label><br>
+
+    <button class="btnStart">Start</button>
+    <button id="btnStop">Stop</button>
+
+    <script src="script.js"></script> <!-- Ссылка на отдельный JS-файл -->
+</body>
+</html>
+
+
+<head>
+    <title>Vase Server v 1.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Vase Server</h1>
+    <div class="state">Timer: 0:00</div> <!-- Пример элемента для состояния/таймера -->
+
+    <!-- Примеры элементов UI (адаптируйте) -->
+    <label>Duration (minutes): <input id="durationInput" type="number" value="5"></label><br>
+    <label>Mode: 
+        <select id="modeSelect">
+            <option value="white">White</option>
+            <option value="rainbow">Rainbow</option>
+            <option value="custom">Custom</option>
+        </select>
+    </label><br>
+    <label>Brightness: <input id="brightnessInput" type="number" min="1" max="10" value="4"></label><br>
+    <label>Red: <input id="redInput" type="number" min="0" max="255" value="0"></label><br>
+    <label>Green: <input id="greenInput" type="number" min="0" max="255" value="0"></label><br>
+    <label>Blue: <input id="blueInput" type="number" min="0" max="255" value="0"></label><br>
+
+    <button class="btnStart">Start</button>
+    <button id="btnStop">Stop</button>
+
+    <script src="script.js"></script> <!-- Ссылка на отдельный JS-файл -->
+</body>
+
+
+
+							<script>
+                            	// script.js - Логика для взаимодействия с ESP32 WebSocket
+
+document.addEventListener('DOMContentLoaded', function() {
+    const ws = new WebSocket(`ws://${window.location.hostname}/ws`);
+    let timerInterval; // Для локального таймера
+
+    ws.onopen = function() {
+        console.log('WebSocket connected');
+        sendGetState(); // Запросить текущее состояние при подключении
+    };
+
+    ws.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        console.log('Received:', data);
+        updateTimer(data.timer); // Обновить таймер
+        // Здесь можно обновить другие элементы UI, например, цвет или состояние
+    };
+
+    ws.onclose = function() {
+        console.log('WebSocket closed');
+    };
+
+    // Функция отправки состояния
+    function sendGetState() {
+        ws.send(JSON.stringify({ act: 'getState' }));
+    }
+
+    // Обработчик кнопки Start
+    document.querySelector('.btnStart')?.addEventListener('click', function() {
+        const duration = parseInt(document.getElementById('durationInput')?.value) || 5; // В минутах
+        const mode = document.getElementById('modeSelect')?.value || 'white';
+        const brightness = parseInt(document.getElementById('brightnessInput')?.value) || 4;
+        const red = parseInt(document.getElementById('redInput')?.value) || 0;
+        const green = parseInt(document.getElementById('greenInput')?.value) || 0;
+        const blue = parseInt(document.getElementById('blueInput')?.value) || 0;
+
+        const payload = {
+            act: 'start',
+            duration: duration,
+            mode: mode,
+            brightness: brightness,
+            red: red,
+            green: green,
+            blue: blue
+        };
+        ws.send(JSON.stringify(payload));
+        startLocalTimer(duration * 60); // Локальный таймер в секундах
+    });
+
+    // Обработчик кнопки Stop
+    document.getElementById('btnStop')?.addEventListener('click', function() {
+        ws.send(JSON.stringify({ act: 'stop' }));
+        stopLocalTimer();
+    });
+
+    // Локальный таймер (для UI, если WS задерживается)
+    function startLocalTimer(seconds) {
+        stopLocalTimer();
+        updateTimer(seconds);
+        timerInterval = setInterval(() => {
+            seconds--;
+            updateTimer(seconds);
+            if (seconds <= 0) stopLocalTimer();
+        }, 1000);
+    }
+
+    function stopLocalTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        updateTimer(0);
+    }
+
+    function updateTimer(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        document.querySelector('.state').textContent = `Timer: ${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+});
+
+` тегов).
+- Добавьте ссылку на `script.js` в конце `<body>` (или в `<head>`).
+
+Исправленный `start.html` (добавьте ваши элементы UI, если их нет):
+```html
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Vase Server v 1.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>Vase Server</h1>
+    <div class="state">Timer: 0:00</div> <!-- Пример элемента для состояния/таймера -->
+
+    <!-- Примеры элементов UI (адаптируйте) -->
+    <label>Duration (minutes): <input id="durationInput" type="number" value="5"></label><br>
+    <label>Mode: 
+        <select id="modeSelect">
+            <option value="white">White</option>
+            <option value="rainbow">Rainbow</option>
+            <option value="custom">Custom</option>
+        </select>
+    </label><br>
+    <label>Brightness: <input id="brightnessInput" type="number" min="1" max="10" value="4"></label><br>
+    <label>Red: <input id="redInput" type="number" min="0" max="255" value="0"></label><br>
+    <label>Green: <input id="greenInput" type="number" min="0" max="255" value="0"></label><br>
+    <label>Blue: <input id="blueInput" type="number" min="0" max="255" value="0"></label><br>
+
+    <button class="btnStart">Start</button>
+    <button id="btnStop">Stop</button>
+
+    <script src="script.js">
+
+							</script>
+                        </body>
+                        </html>
+                    

@@ -1,0 +1,10 @@
+idf_component_register(
+    SRCS 
+	  "src/ws2812.c"
+ 	  "src/led_strip_encoder.c"
+    INCLUDE_DIRS 
+	  "include"
+    REQUIRES
+      driver 
+      freertos
+)

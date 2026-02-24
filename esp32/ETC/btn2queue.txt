@@ -1,0 +1,120 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_timer.h"  // Для debounce с помощью таймера
+
+// Определения пинов
+#define LED_PIN     GPIO_NUM_8  // LED на GPIO8
+#define BTN_PIN     GPIO_NUM_5  // TTP223 SIG на GPIO5 (для ON)
+#define BTN_PIN_OFF GPIO_NUM_6  // Вторая кнопка на GPIO6 (для OFF)
+
+// Тег для логов
+static const char *TAG = "BUTTONS_LED";
+
+// Глобальная переменная для состояния LED
+static bool led_state = false;
+
+// Очередь для событий кнопок
+static QueueHandle_t button_queue;
+
+// Функция обработчика прерывания для TTP223 (ON)
+static void IRAM_ATTR gpio_isr_handler_on(void *arg) {
+    uint32_t pin = BTN_PIN;  // Идентификатор пина
+    xQueueSendFromISR(button_queue, &pin, NULL);
+}
+
+// Функция обработчика прерывания для кнопки OFF
+static void IRAM_ATTR gpio_isr_handler_off(void *arg) {
+    uint32_t pin = BTN_PIN_OFF;  // Идентификатор пина
+    xQueueSendFromISR(button_queue, &pin, NULL);
+}
+
+// Задача для обработки событий из очереди
+static void button_task(void *arg) {
+    uint32_t pin;
+    static uint64_t last_time_on = 0;   // Для debounce TTP223
+    static uint64_t last_time_off = 0;  // Для debounce кнопки OFF
+    
+    while (1) {
+        // Ждём событие из очереди (блокирующе)
+        if (xQueueReceive(button_queue, &pin, portMAX_DELAY) == pdTRUE) {
+            uint64_t current_time = esp_timer_get_time();
+            
+            if (pin == BTN_PIN) {
+                // Debounce для TTP223: игнорируем, если прошло меньше 100 мс
+                if (current_time - last_time_on > 100000) {  // 100 мс
+                    led_state = true;  // Включить LED
+                    gpio_set_level(LED_PIN, led_state);
+                    ESP_LOGI(TAG, "TTP223 касание: LED включен");
+                    last_time_on = current_time;
+                }
+            } else if (pin == BTN_PIN_OFF) {
+                // Debounce для кнопки OFF: игнорируем, если прошло меньше 100 мс
+                if (current_time - last_time_off > 100000) {  // 100 мс
+                    led_state = false;  // Выключить LED
+                    gpio_set_level(LED_PIN, led_state);
+                    ESP_LOGI(TAG, "Кнопка OFF нажата: LED выключен");
+                    last_time_off = current_time;
+                }
+            }
+        }
+    }
+}
+
+// Основная функция
+void app_main(void) {
+    // Создание очереди (10 элементов, каждый — uint32_t)
+    button_queue = xQueueCreate(10, sizeof(uint32_t));
+    if (button_queue == NULL) {
+        ESP_LOGE(TAG, "Ошибка создания очереди!");
+        return;
+    }
+
+    // Настройка LED как выход
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << LED_PIN),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+    gpio_config(&io_conf);
+    gpio_set_level(LED_PIN, 0);  // LED изначально выключен
+
+    // Настройка TTP223 (BTN_PIN) как вход с прерыванием (для ON)
+    io_conf.pin_bit_mask = (1ULL << BTN_PIN);
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;    // Внутренняя подтяжка вверх (для TTP223 Active High)
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.intr_type = GPIO_INTR_POSEDGE;      // Прерывание на восходящий фронт (начало касания)
+    gpio_config(&io_conf);
+
+    // Настройка кнопки OFF (BTN_PIN_OFF) как вход с прерыванием
+    io_conf.pin_bit_mask = (1ULL << BTN_PIN_OFF);
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;    // Внутренняя подтяжка вверх (для active low кнопки)
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.intr_type = GPIO_INTR_NEGEDGE;      // Прерывание на нисходящий фронт (начало нажатия, active low)
+    gpio_config(&io_conf);
+
+    // Установка сервиса прерываний
+    gpio_install_isr_service(0);  // Флаги по умолчанию
+
+    // Добавление обработчиков прерывания
+    gpio_isr_handler_add(BTN_PIN, gpio_isr_handler_on, NULL);
+    gpio_isr_handler_add(BTN_PIN_OFF, gpio_isr_handler_off, NULL);
+
+    // Создание задачи для обработки кнопок
+    xTaskCreate(button_task, "button_task", 2048, NULL, 5, NULL);
+
+    ESP_LOGI(TAG, "Система готова. Касайтесь TTP223 для включения LED, нажимайте вторую кнопку для выключения.");
+
+    // Бесконечный цикл (можно добавить логи или другие задачи)
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(1000));  // Задержка 1 сек, чтобы не нагружать CPU
+        ESP_LOGI(TAG, "LED state: %d", led_state);
+    }
+}

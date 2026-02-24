@@ -1,0 +1,172 @@
+```bash
+idf.py spiffs-flash
+```
+
+```c
+void countdown_task(int duration) {
+    int total_seconds = duration * 60;
+    while (total_seconds > 0) {
+        vTaskDelay(10000 / portTICK_PERIOD_MS); // Каждые 10 секунд
+        total_seconds -= 10;
+
+        int minutes = total_seconds / 60;
+        int seconds = total_seconds % 60;
+
+        // Отправляем оставшееся время через WebSocket
+        ws_send_remaining_time(minutes, seconds);
+    }
+}
+```--------------------
+```c
+void ws_handle_message(const char *message) {
+    cJSON *json = cJSON_Parse(message);
+    if (json) {
+        int frequency = cJSON_GetObjectItem(json, "frequency")->valueint;
+        int duration = cJSON_GetObjectItem(json, "duration")->valueint;
+
+        xTaskCreate(countdown_task, "countdown_task", 2048, (void*)duration, 5, NULL);
+        blink_led(frequency, duration);
+
+        cJSON_Delete(json);
+    }
+}
+```
+-------------------------------------------------
+```c
+void ws_handle_message(const char *message) {
+    cJSON *json = cJSON_Parse(message);
+    if (json) {
+        const char *action = cJSON_GetObjectItem(json, "action")->valuestring;
+
+        if (strcmp(action, "start") == 0) {
+            int frequency = cJSON_GetObjectItem(json, "frequency")->valueint;
+            int duration = cJSON_GetObjectItem(json, "duration")->valueint;
+
+            // Запуск отслеживания времени
+            xTaskCreate(countdown_task, "countdown_task", 2048, (void*)duration, 5, NULL);
+            blink_led(frequency, duration);
+        } else if (strcmp(action, "stop") == 0) {
+            // Остановка мигания и сброс таймера
+            stop_blinking(); // Функция для остановки мигания
+        }
+
+        cJSON_Delete(json);
+    }
+}
+```---------------------------------------
+```c
+static volatile bool blinking = false; // Переменная для контроля мигания
+
+void blink_led(int frequency, int duration) {
+    blinking = true; // Начинаем мигание
+    int blink_interval = 1000 / (frequency * 2); // Интервал в миллисекундах
+    int total_blinks = frequency * duration * 60; // Общее количество миганий
+
+    for (int i = 0; i < total_blinks && blinking; i++) {
+        gpio_set_level(LED_GPIO, 1); // Включение светодиода
+        vTaskDelay(blink_interval / portTICK_PERIOD_MS);
+        gpio_set_level(LED_GPIO, 0); // Выключение светодиода
+        vTaskDelay(blink_interval / portTICK_PERIOD_MS);
+    }
+    blinking = false; // Окончание мигания
+}
+
+void stop_blinking() {
+    blinking = false; // Останавливаем мигание
+    // Сброс таймера (если необходимо)
+}
+```
+
+###################################################
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "esp_system.h"
+#include "driver/gpio.h"
+
+// Определение пинов светодиодов
+#define LED_PIN1 2
+#define LED_PIN2 3
+
+void task_blink_led1(void *arg) {
+    while (1) {
+        // Мигание первым светодиодом
+        gpio_set_level(LED_PIN1, 1);
+        vTaskDelay(1000 / portTICK_PERIOD_MS); // Период мигания 1 секунда
+        gpio_set_level(LED_PIN1, 0);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+void task_blink_led2(void *arg) {
+    while (1) {
+        // Мигание вторым светодиодом
+        gpio_set_level(LED_PIN2, 1);
+        vTaskDelay(5000 / portTICK_PERIOD_MS); // Период мигания 5 секунд
+        gpio_set_level(LED_PIN2, 0);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
+    }
+}
+
+int main(void) {
+    // Инициализация FreeRTOS
+    xTaskCreate(&task_blink_led1, "BlinkLed1", 4096, NULL, 5, NULL);
+    xTaskCreate(&task_blink_led2, "BlinkLed2", 4096, NULL, 5, NULL);
+
+    // Настройка пинов как выходов
+    gpio_config_t config;
+    config.mode = GPIO_MODE_OUTPUT;
+    gpio_config(&config);
+
+    // Обработка сигналов от GPIO
+    gpio_install_isr_handler(GPIO_NUM_2, GPIO_ISR_INTR_ANY_EDGE);
+    gpio_isr_callback_register(GPIO_NUM_2, &gpio_isr_handle, NULL);
+
+    for (;;) {
+        if (gpio_get_level(GPIO_NUM_2) == 1) {
+            // Приостановить мигание первого светодиода
+        } else {
+            // Возобновить мигание первого светодиода
+        }
+    }
+
+    return 0;
+}
+==============
+
+for (;;) {
+    if (gpio_get_level(GPIO_NUM_2) == 1) {
+        // Приостановить мигание первого светодиода
+        vTaskSuspend(NULL);
+    } else {
+        // Возобновить мигание первого светодиода
+        xTaskResume(task_blink_led1);
+    }
+}
+==============
+#include "driver/gpio.h"
+
+void setup() {
+   // Настройка GPIO для управления зуммером
+   pinMode(GPIO_PIN, OUTPUT);
+}
+
+void loop() {
+   tone(GPIO_PIN, 440, 500); // Генерирует звук на частоте 440 Гц в течение 0.5 секунды
+   delay(1000);               // Пауза на 1 секунду
+}
+===================================
+#include <pwm.h>
+
+void setup() {
+   // Настройка пина для PWM
+   pinMode(LED_BUILTIN, OUTPUT);
+   
+   // Инициализация PWM
+   pwmSetup(ledPin, 800, 2000); // Частота 800 Гц, рабочий цикл 20%
+}
+
+void loop() {
+   // Управление рабочим циклом PWM для изменения громкости зуммера
+   analogWrite(ledPin, 100);
+   delay(1000);
+}
