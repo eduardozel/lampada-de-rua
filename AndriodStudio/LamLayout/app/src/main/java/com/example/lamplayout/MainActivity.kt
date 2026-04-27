@@ -5,7 +5,7 @@ import android.Manifest
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.*
-import android.net.wifi.WifiManager
+
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -36,7 +36,7 @@ import android.net.wifi.WifiNetworkSpecifier
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private lateinit var wifiManager: WifiManager
+
     private lateinit var connectivityManager: ConnectivityManager
 
     private lateinit var prefs: SharedPreferences
@@ -73,7 +73,6 @@ class MainActivity : AppCompatActivity() {
 
         prefs = getSharedPreferences("Lamp_Settings", Context.MODE_PRIVATE)
 
-        wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
         connectivityManager = applicationContext.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
 
         requestPermissionsIfNeeded()
@@ -87,11 +86,12 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.CHANGE_WIFI_STATE,
             Manifest.permission.INTERNET
         )
+
         // На Android 10+ нужен доступ к локации для сканирования WiFi
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
-        // На Android 13+ нужен доступ к Nearby Wi-Fi Devices для управления Wi-Fi напрямую
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
         }
@@ -110,11 +110,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.btnClose.setOnClickListener {
             cleanup()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                finishAndRemoveTask()
-            } else {
-                finishAffinity()
-            }
+            finishAndRemoveTask()
         }
     }
 // * * * * * * * *
@@ -133,7 +129,6 @@ override fun onCreateOptionsMenu(menu: Menu): Boolean {
     return true
 }
 
-    // Обработка нажатия на пункты меню
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_settings -> {
@@ -196,11 +191,7 @@ override fun onCreateOptionsMenu(menu: Menu): Boolean {
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
             imm?.showSoftInput(editText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
-
         dialog.show()
-
-
-
     }
 
 //  * * * * * * * *
@@ -213,10 +204,10 @@ override fun onCreateOptionsMenu(menu: Menu): Boolean {
 
                 delay(1000)
 
-                updateStatus("Подключение к lamp1...")
+                updateStatus("Подключение к lamp...")
                 val connected = connectToLampWifi()
                 if (!connected) {
-                    throw Exception("Не удалось подключиться к lamp1")
+                    throw Exception("Не удалось подключиться к lamp..")
                 }
 
                 delay(1500) // Ждём IP
@@ -240,32 +231,21 @@ override fun onCreateOptionsMenu(menu: Menu): Boolean {
     }
 
     private fun disconnectFromCurrentWifi() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            Log.d(TAG, "Android 10+: отключение принудительно не поддерживается")
-            // Можно попытаться сбросить привязку к сети, чтобы вернуть штатное состояние
-            connectivityManager.bindProcessToNetwork(null)
-        } else {
-            @Suppress("DEPRECATION")
-            wifiManager.disconnect()
-        }
+        connectivityManager.bindProcessToNetwork(null)
     }
 
     private suspend fun connectToLampWifi(): Boolean = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             connectWithNetworkSpecifier()
-        } else {
-            connectWithLegacyWifi()
-        }
     }
 
     private suspend fun connectWithNetworkSpecifier(): Boolean = suspendCancellableCoroutine { cont ->
         try {
 
-            val wf_ssid = prefs.getString("wifi_ssid", "").orEmpty()
-            val wf_pass = prefs.getString("wifi_pwd", "").orEmpty()
+            val wfssid = prefs.getString(WIFI_SSD, "").orEmpty()
+            val wfpass = prefs.getString(WIFI_PWD, "").orEmpty()
 
 /*
-            if (wf_ssid.isBlank() || wf_pass.isBlank()) {
+            if (wfssid.isBlank() || wfpass.isBlank()) {
                 Log.w(TAG, "Настройки WiFi не заполнены")
                 runOnUiThread { showToast("Заполните настройки WiFi!") }
                 cont.resume(false)
@@ -274,8 +254,8 @@ override fun onCreateOptionsMenu(menu: Menu): Boolean {
 */
 
             val specifierBuilder = WifiNetworkSpecifier.Builder()
-                .setSsid(wf_ssid)
-                .setWpa2Passphrase(wf_pass)
+                .setSsid(wfssid)
+                .setWpa2Passphrase(wfpass)
 
             val specifier = specifierBuilder.build()
 
@@ -323,51 +303,6 @@ override fun onCreateOptionsMenu(menu: Menu): Boolean {
         }
     }
 
-    @Suppress("DEPRECATION")
-    private suspend fun connectWithLegacyWifi(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            if (!wifiManager.isWifiEnabled) {
-                wifiManager.isWifiEnabled = true
-                delay(1500)
-            }
-
-            val wifiConfig = android.net.wifi.WifiConfiguration().apply {
-                SSID = "\"lamp1\""
-                preSharedKey = "\"lamp4567\""
-                allowedKeyManagement.set(android.net.wifi.WifiConfiguration.KeyMgmt.WPA_PSK)
-            }
-
-            val networkId = wifiManager.addNetwork(wifiConfig)
-            if (networkId == -1) {
-                Log.e(TAG, "Не удалось добавить конфигурацию WiFi")
-                return@withContext false
-            }
-
-            wifiManager.disconnect()
-            val enabled = wifiManager.enableNetwork(networkId, true)
-            val reconnected = wifiManager.reconnect()
-
-            if (!enabled || !reconnected) {
-                Log.e(TAG, "Не удалось включить или переподключиться к сети")
-                return@withContext false
-            }
-
-            repeat(10) {
-                delay(500)
-                val info = wifiManager.connectionInfo
-                val connectedSsid = info.ssid?.replace("\"", "")
-                if (connectedSsid == "lamp1" && info.networkId != -1) {
-                    return@withContext true
-                }
-            }
-
-            Log.e(TAG, "Не удалось подключиться к lamp1 в отведённое время")
-            false
-        } catch (e: Exception) {
-            Log.e(TAG, "Ошибки при Legacy WiFi: ${e.message}", e)
-            false
-        }
-    }
 // ** * * sendToggleCommand
 private suspend fun sendToggleCommand() = withContext(Dispatchers.IO) {
 //    val url = "ws://192.168.4.1/ws"
@@ -453,11 +388,6 @@ private suspend fun sendToggleCommand() = withContext(Dispatchers.IO) {
 
             wifiCallback = null
             requestNetwork = null
-
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                @Suppress("DEPRECATION")
-                wifiManager.disconnect()
-            }
 
             // Восстанавливаем интернет-соединение
             try {
