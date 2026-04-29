@@ -1,3 +1,6 @@
+// 
+// esp32c3 esp-idf v 5.5.1
+//
 #include "WS2812.h"
 
 #include <stdint.h>
@@ -34,11 +37,11 @@ static uint8_t led_strip_pixels[MAX_LED_NUMBERS * 3];
 
 led_state_t *led_states = NULL;
 
-    rmt_channel_handle_t       led_chan;
-    rmt_tx_channel_config_t    tx_chan_config;
-	led_strip_encoder_config_t encoder_config;
-	rmt_encoder_handle_t       led_encoder;
-    rmt_transmit_config_t      tx_config;
+rmt_channel_handle_t       led_chan;
+rmt_tx_channel_config_t    tx_chan_config;
+led_strip_encoder_config_t encoder_config;
+rmt_encoder_handle_t       led_encoder;
+rmt_transmit_config_t      tx_config;
 // - - - - - - - - - - -
 /**
  * @brief Simple helper function, converting HSV color space to RGB color space
@@ -203,18 +206,17 @@ void setProfileN( int prfl )
 {//   ESP_LOGI(TAG, "setProfile>>%d",prfl);
     led_state_t *state = &led_states[prfl];
     setLEDsArray(state->leds, MAX_LED_NUMBERS);
-} // setProfile
+} // setProfileN
 
 void fade_in_warm_white( int max )
 {
-    brightness = max;
+  brightness = max;
 	for (int step = 0; step < max; step++) {
 //      ws2812_send(&warm_white_steps[step], LED_COUNT);
-      setAllLED_rgb( warm_white_steps[step].red, warm_white_steps[step].green, warm_white_steps[step].blue);
-	  vTaskDelay(500 / portTICK_PERIOD_MS);
-    }
+    setAllLED_rgb( warm_white_steps[step].red, warm_white_steps[step].green, warm_white_steps[step].blue);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+  } // for
 } // fade_in_warm_white
-
 
 
 //set_warm_white(); 

@@ -17,7 +17,7 @@ typedef struct {
 
 typedef struct {
     rgb_t leds[MAX_LED_NUMBERS];
-    int duration_sec;
+    int duration_ssec; // santi second
 } led_state_t;
 
 extern led_state_t *led_states;
