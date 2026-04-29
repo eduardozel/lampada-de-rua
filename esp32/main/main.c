@@ -12,7 +12,6 @@
 
 #include "driver/gpio.h"
 
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -28,9 +27,7 @@
 #include "lamp.h"
 #include "webserver.h"
 
-
-static const char *TAG = "AP lotos";
-
+static const char *TAG = "AP lamp";
 
 #define LED_PIN 8
 #define led_on  0
@@ -49,7 +46,6 @@ typedef enum {
 static int btn2_last_level = -1;
 
 static QueueHandle_t button_queue;
-
 
 static webserver_ap_config_t ap_cfg = {0};
 
@@ -71,7 +67,6 @@ static void IRAM_ATTR gpio_isr_handler(void* arg
         event = EVENT_BUTTON_2;
         xQueueSendFromISR(button_queue, &event, &higher_priority_task_woken);
     }
-
     portYIELD_FROM_ISR(higher_priority_task_woken);
 } // gpio_isr_handler
 
@@ -127,14 +122,14 @@ static void button_task(void* arg
                 ESP_LOGI(TAG, "Button2 interrupt, level=%d", level);
                 
                 if (btn2_last_level == 0 && level == 1) {                // rising edge
-                    ESP_LOGI(TAG, "Button2 rising edge - turn ON lamp");
-                    if (LAMP_on) {
-                        LAMP_turn_Off();
-                    }
-                } else if (btn2_last_level == 1 && level == 0) {         // falling edge
-                    ESP_LOGI(TAG, "Button2 falling edge - turn OFF lamp");
+                    ESP_LOGI(TAG, "Button2 rising edge");
                     if (!LAMP_on) {
                         LAMP_turn_On();
+                    }
+                } else if (btn2_last_level == 1 && level == 0) {         // falling edge
+                    ESP_LOGI(TAG, "Button2 falling edge");
+                    if (LAMP_on) {
+                        LAMP_turn_Off();
                     }
                 }
                 btn2_last_level = level;
@@ -185,17 +180,17 @@ void init_spiffs() {
         .base_path = "/spiffs",
         .partition_label = NULL,
         .max_files = 5,
-        .format_if_mount_failed = true};
-
+        .format_if_mount_failed = true
+    };
     ESP_ERROR_CHECK(esp_vfs_spiffs_register(&spiffs_conf));
 }; // init_spiffs
 
 // --
 /*
-На ESP32-C3 избегайте:
+ESP32-C3 caution:
 
 GPIO_NUM_11 — строб памяти (flash)
-GPIO_NUM_12–GPIO_NUM_17 — внутренняя SPI Flash/PSRAM
+GPIO_NUM_12–GPIO_NUM_17 — internal SPI Flash/PSRAM
 
 bool is_valid_gpio(gpio_num_t pin) {
     // Список допустимых GPIO для ESP32-C3 (без USB и стробов)
@@ -256,19 +251,19 @@ esp_err_t read_lamp_config_from_file(void) {
         return ESP_FAIL;
     }
     temp_password[strcspn(temp_password, "\r")] = 0;
-	strcpy(ap_cfg.password, temp_password);
+    strcpy(ap_cfg.password, temp_password);
 //    strncpy(ap_cfg.password, temp_password, sizeof(ap_cfg.password) - 1);
 //    ap_cfg.password[sizeof(ap_cfg.password) - 1] = '\0';
     ESP_LOGI(TAG, "Read Password: %s<<!!!", ap_cfg.password);
 
-    uint8_t wifi_channel      = 6;
+    uint8_t wifi_channel  = 6;
     char temp_chan[8] = {0};
     if (!fgets(temp_chan, sizeof(temp_chan), file)) goto fail;
     temp_chan[strcspn(temp_chan, "\r\n")] = '\0';
-	ap_cfg.channel = atoi(temp_chan);
+	  ap_cfg.channel = atoi(temp_chan);
     ESP_LOGI(TAG, "Read wifi_channel=%d", wifi_channel);
 
-	ap_cfg.max_connections = 3;
+	  ap_cfg.max_connections = 3;
 
     char led_str[8] = {0};
     if (!fgets(led_str, sizeof(led_str), file)) goto fail;
@@ -294,9 +289,6 @@ esp_err_t read_lamp_config_from_file(void) {
 
     ESP_LOGI(TAG, ">>>>>>>>Read LED_STRIP_GPIO=%d, BTN_1_PIN=%d, BTN_2_PIN=%d", LED_STRIP_GPIO, BTN_1_PIN, BTN_2_PIN);
 
-
-
-
     fclose(file);
     return ESP_OK;
 fail:
@@ -308,8 +300,7 @@ fail:
 void app_main()
 {
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
-    {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
@@ -317,7 +308,7 @@ void app_main()
     init_spiffs();
 
     init_led();
-	if ( xTaskCreate(&lamp_timeout_task,   "countdown", 2048, NULL, 5, NULL) != pdPASS) {
+    if ( xTaskCreate(&lamp_timeout_task,   "countdown", 2048, NULL, 5, NULL) != pdPASS) {
       ESP_LOGE(TAG, "Failed to create lamp_timeout_task!");
     }
     if (read_lamp_config_from_file() != ESP_OK) {
@@ -349,9 +340,9 @@ void app_main()
       ESP_LOGI(TAG, "+++ ++ ++ ++  btn ... ... ... ...\n");
     } else {
       ESP_LOGI(TAG, "--- -- -- --  btn ... ... ... ...\n");
-	};
+	  };
 
-	ESP_LOGI(TAG, "              btn ... handler ... ...\n");
+	  ESP_LOGI(TAG, "              btn ... handler ... ...\n");
 
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BTN_1_PIN, gpio_isr_handler, (void*)BTN_1_PIN);
@@ -364,13 +355,11 @@ void app_main()
     }
     xTaskCreate(button_task, "button_task", 2048, NULL, 10, NULL);
 
-
     ESP_LOGI(TAG, "ESP_WIFI_MODE_AP");
 
-	ESP_LOGI(TAG, "ESP32 ESP-IDF WebSocket Web Server is running ... ...\n");
-	webserver_init_buffers();
-	ESP_LOGI(TAG, "+++ +++ +++ +++  setup_websocket_server ... ... ... ...\n");
-	webserver_start(&ap_cfg);
-
+    ESP_LOGI(TAG, "ESP32 ESP-IDF WebSocket Web Server is running ... ...\n");
+    webserver_init_buffers();
+    ESP_LOGI(TAG, "+++ +++ +++ +++  setup_websocket_server ... ... ... ...\n");
+    webserver_start(&ap_cfg);
     LAMP_init();
 } // main
