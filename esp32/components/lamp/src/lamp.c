@@ -1,3 +1,5 @@
+// 
+// esp32c3 esp-idf v 5.5.1
 //
 // lamp.c
 //
@@ -63,27 +65,27 @@ static int lamp_state_from_str(const char *s, LAMP_state_t *out)
 */
 
 typedef enum {
-    white    = 0,
-    rainbow  = 1,
-    custom   = 2,
-	profile  = 3,
-	profileN = 4
+  ls_white    = 0,
+  ls_rainbow  = 1,
+  ls_custom   = 2,
+	ls_profile  = 3,
+	ls_profileN = 4
 } LAMP_state_t;
 
 
 bool LAMP_on   = false;
 int lamp_start_on = 1;
 
-LAMP_state_t lamp_state = white;
+LAMP_state_t lamp_state = ls_white;
 
-bool         rainbow_active = false;
+bool         rainbow_active      = false;
 TaskHandle_t rainbow_task_handle = NULL;
 
-bool         profile_active = false;
+bool         profile_active      = false;
 TaskHandle_t profile_task_handle = NULL;
 
 
-int   current_duration = 5*60;
+int   current_duration     = 5*60;
 volatile int total_seconds = 0;
 int   brightness = 4;
 rgb_t custom_color;
@@ -106,16 +108,15 @@ void rainbow_task(void *arg) {
             hue = 0.0f;
             direction = 1;
         }
-
         vTaskDelay(pdMS_TO_TICKS( 1500));
     }
-	rainbow_active = false;
+	  rainbow_active = false;
     rainbow_task_handle = NULL;
     vTaskDelete(NULL);
 } // rainbow_task
 
 void start_rainbow(void) {
-    if (rainbow_active) return; // Already running
+    if ( rainbow_active ) return; // Already running
     rainbow_active = true;
     xTaskCreate(rainbow_task, "rainbow_task", 2048, NULL, 5, &rainbow_task_handle);
 } // start_rainbow
@@ -129,25 +130,28 @@ void stop_rainbow(void) {
 } // stop_rainbow
 /*==================*/
 void profile_task(void *arg) {
-	int i = 0;
-	int duration = 0;
+    int i = 0;
+    int duration = 0;
     while (profile_active) {
-        duration = 1000 * led_states[i].duration_sec;        
-		setProfileN(i);
-        vTaskDelay(pdMS_TO_TICKS( duration ));
-        i = (i + 1) % led_states_count;
-    }
+      int dtmp = led_states[i].duration_ssec;
+      if ( dtmp > 0 ) {
+        duration = 100 * dtmp;
+		    setProfileN( i );
+        vTaskDelay( pdMS_TO_TICKS( duration ));
+        i = ( i + 1 ) % led_states_count;
+      } // if
+    }  // while
     vTaskDelete(NULL);
 } // profile_task
 
 void start_profile(void) {
-    if (profile_active) return;
+    if ( profile_active ) return;
     profile_active = true;
     xTaskCreate(profile_task, "profile_task", 2048, NULL, 5, &profile_task_handle);
 } // start_profile
 
 void stop_profile(void) {
-    if (!profile_active) return;
+    if ( !profile_active ) return;
     profile_active = false;
     if (profile_task_handle != NULL) {
         vTaskDelay(pdMS_TO_TICKS(200)); // Wait a bit for task to exit loop
@@ -156,21 +160,21 @@ void stop_profile(void) {
 } // stop_profile
 //-----------------
 void LAMP_turn_On(void){
-    LAMP_turn_Off();
+  LAMP_turn_Off();
 	total_seconds = current_duration;
-	if ( white == lamp_state ) {
+	if ( ls_white == lamp_state ) {
 	  ESP_LOGI(TAG, "white");
 	  fade_in_warm_white( brightness );
-	} else if ( custom == lamp_state ) {
+	} else if ( ls_custom == lamp_state ) {
 	  ESP_LOGI(TAG, "custom\nred=%d",custom_color.red);
       setAllLED( custom_color );
-	} else if ( rainbow == lamp_state ) {
+	} else if ( ls_rainbow == lamp_state ) {
 	  ESP_LOGI(TAG, "rainbow");
 	  start_rainbow();
-	} else if ( profile == lamp_state ) {
+	} else if ( ls_profile == lamp_state ) {
 	  ESP_LOGI(TAG, "profile");
 	  start_profile();
-	} else if ( profileN == lamp_state ) {
+	} else if ( ls_profileN == lamp_state ) {
 	  ESP_LOGI(TAG, "profileN");
 	  ESP_LOGI(TAG, "profileN>%d<>%d<>%d", brightness, led_states_count, ( brightness-1) % (led_states_count));
 	  setProfileN( ( brightness-1) % (led_states_count));
@@ -197,14 +201,14 @@ void write_config_file(void) {
     fprintf(f, "brightness=%d\nduration=%d\n", brightness, current_duration );
     fprintf(f, "red=%d\ngreen=%d\nblue=%d\n", custom_color.red, custom_color.green, custom_color.blue);
     ESP_LOGI(TAG, "Config written:\n brightness=%d\nduration=%d\n", brightness, current_duration);
-	fprintf(f, "lamp_state=%d\n",(int)lamp_state);
-	fprintf(f, "lamp_start=%d\n",lamp_start_on);
+	  fprintf(f, "lamp_state=%d\n",(int)lamp_state);
+	  fprintf(f, "lamp_start=%d\n",lamp_start_on);
     fclose(f);
 } // write_config_file
 
 void read_config_file(void) {
-	ESP_LOGI(TAG, "read_config_file");
-    FILE *f = fopen(CONFIG_FILE, "r");
+	  ESP_LOGI(TAG, "read_config_file");
+    FILE *f = fopen( CONFIG_FILE, "r");
     if (f == NULL) {
         ESP_LOGW(TAG, "File not found, using defaults");
         current_duration = 5;
@@ -219,17 +223,16 @@ void read_config_file(void) {
 		int tmp;
         if (sscanf(line, "brightness=%d", &brightness) == 1) {                       // if (sscanf(line, "max_time=%" SCNu32, &max_time) == 1) {
             ESP_LOGI(TAG, "Read brightness=%d", brightness);                         //     ESP_LOGI(TAG, "Read max_time=%" PRIu32, max_time);
-
-        } else if (sscanf(line, "red=%hhu", &custom_color.red) == 1) {
+        } else if (sscanf(line, "red=%hhu",   &custom_color.red) == 1) {
             ESP_LOGI(TAG, "Read red=%d", custom_color.red);
         } else if (sscanf(line, "green=%hhu", &custom_color.green) == 1) {
             ESP_LOGI(TAG, "Read green=%d", custom_color.green);
-        } else if (sscanf(line, "blue=%hhu", &custom_color.blue) == 1) {
+        } else if (sscanf(line, "blue=%hhu",  &custom_color.blue) == 1) {
             ESP_LOGI(TAG, "Read blue=%d", custom_color.blue);
         } else if (sscanf(line, "duration=%d", &current_duration) == 1) {
             ESP_LOGI(TAG, "Read current_duration=%d", current_duration);
         } else if (sscanf(line, "lamp_state=%d", &tmp) == 1) {
-			lamp_state = (LAMP_state_t)tmp;
+		        lamp_state = (LAMP_state_t)tmp;
             ESP_LOGI(TAG, "Read lamp_state=%d", lamp_state);
         } else if (sscanf(line, "lamp_start=%d", &lamp_start_on) == 1) {
             ESP_LOGI(TAG, "Read lamp_strt=%d", lamp_start_on);
@@ -271,11 +274,11 @@ void lamp_settings_from_json(cJSON *json) {
     cJSON *mode_item = cJSON_GetObjectItem(json, "mode");
     if (mode_item != NULL && mode_item->type == cJSON_String) {
         const char *mode = mode_item->valuestring;
-        if        (strcmp(mode, "white")    == 0) { lamp_state = white;
-        } else if (strcmp(mode, "custom")   == 0) { lamp_state = custom;
-        } else if (strcmp(mode, "rainbow")  == 0) { lamp_state = rainbow;
-        } else if (strcmp(mode, "profile")  == 0) { lamp_state = profile;
-        } else if (strcmp(mode, "profileN") == 0) { lamp_state = profileN;
+        if        (strcmp(mode, "white")    == 0) { lamp_state = ls_white;
+        } else if (strcmp(mode, "custom")   == 0) { lamp_state = ls_custom;
+        } else if (strcmp(mode, "rainbow")  == 0) { lamp_state = ls_rainbow;
+        } else if (strcmp(mode, "profile")  == 0) { lamp_state = ls_profile;
+        } else if (strcmp(mode, "profileN") == 0) { lamp_state = ls_profileN;
         } else {
             ESP_LOGE(TAG, "Unknown mode: %s", mode);
         }
@@ -383,16 +386,16 @@ bool load_led_states_from_cfg(void) {
         }
 
         // Parsing color
-        //  duration_sec, {R,G,B}, {R,G,B}, ..., {R,G,B}
+        //  duration_ssec, {R,G,B}, {R,G,B}, ..., {R,G,B}
         // 5, {255,0,0}, {0,255,0}, ..., {255,255,255}
 
         char *p = linebuf;
-        int duration_sec = 0;
+        int duration_ssec = 0;
 //		int tmp1 = 0;
 //        int tmp2 = 0;
 //        ESP_LOGI(TAG, ">>>>>>>%s", p);
         int n = 0;
-        if (sscanf(p, "%u%n", &duration_sec, &n) != 1) {
+        if (sscanf(p, "%u%n", &duration_ssec, &n) != 1) {
             ESP_LOGE(TAG, "Failed to read duration in line %d<---->%d<>>>>%s", i, n, p);
             free_led_states();
             fclose(f);
@@ -402,7 +405,9 @@ bool load_led_states_from_cfg(void) {
 
         while (*p == ' ' || *p == ',') p++;
 
-        led_states[i].duration_sec = duration_sec;
+        if ( duration_ssec > 0 ) {
+          led_states[i].duration_ssec = duration_ssec;
+        };
 
         for (int led_i = 0; led_i < MAX_LED_NUMBERS; led_i++) {
             int r, g, b;
@@ -447,15 +452,15 @@ bool load_led_states_from_cfg(void) {
 
 // - - - - -
 void LAMP_init(void){
-    total_seconds = 0;
+  total_seconds = 0;
 	read_config_file();
 	load_led_states_from_cfg();
 	initWS2812();
-    if ( 1 == lamp_start_on ) {
-      LAMP_turn_On();
-    } else {
-  	  fade_in_warm_white( 3 );
-      vTaskDelay( 200 );
-	  offAllLED();
-	};
+  if ( 1 == lamp_start_on ) {
+    LAMP_turn_On();
+  } else {
+	  fade_in_warm_white( 3 );
+    vTaskDelay( 200 );
+    offAllLED();
+  };
 }; // LAMP_init
