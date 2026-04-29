@@ -45,7 +45,7 @@ struct async_resp_arg {
 
 static esp_err_t load_file_to_buffer( const char *path
                                     , char *buffer
-									, size_t buf_size
+								                    , size_t buf_size
 ) {
     struct stat st;
     if (stat(path, &st) != 0) {
@@ -231,9 +231,8 @@ esp_err_t style_handler(httpd_req_t *req) {
     size_t css_len = strlen(style_css);  // Длина из буфера (благодаря \0)
     ESP_LOGI(TAG, "Serving styles.css from memory, size: %d", css_len);
 
-     httpd_resp_set_type(req, "text/css");    // Устанавливаем тип контента (важно для браузера!)
+     httpd_resp_set_type(req, "text/css");
 
-    // Опционально: заголовки для кэша (чтобы браузер не запрашивал каждый раз)
     httpd_resp_set_hdr(req, "Cache-Control", "max-age=3600");  // Кэш на 1 час; no-cache для тестов.
 //    httpd_resp_set_hdr(req, "Cache-Control", "no-cache");  // no-cache для тестов.
 //    httpd_resp_set_hdr(req, "Cache-Control", "no-cache, no-store, must-revalidate")
@@ -394,23 +393,23 @@ static esp_err_t handle_ws_req(httpd_req_t *req)
 					LAMP_turn_Off();
 				}
 				if ( cmdOnOff ) {
-                  if (!LAMP_on) {
-                    LAMP_turn_On();
-                  } else {
-				    LAMP_turn_Off();
-                  } // if LAMP_on				
+          if (!LAMP_on) {
+            LAMP_turn_On();
+          } else {
+            LAMP_turn_Off();
+          } // if LAMP_on				
 				}
 			} // if (json)
 			cJSON_Delete(json);
 		}
 	} else if (ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
-      ESP_LOGI(TAG, "WebSocket connection closed by client");
+    ESP_LOGI(TAG, "WebSocket connection closed by client");
 	  if ( buf != NULL ) {
-        free(buf);
+      free(buf);
 	  }
-      return ESP_OK;
-    }
     return ESP_OK;
+  }
+  return ESP_OK;
 } // handle_ws_req
 
 esp_err_t not_found_handler(httpd_req_t *req) {
@@ -431,12 +430,14 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
 //		freqLED = 3000;
         ESP_LOGI(TAG, "station "MACSTR" join, AID=%d",
-                 MAC2STR(event->mac), event->aid);
+                   MAC2STR(event->mac), event->aid
+        );
     } else if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
         wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
 //		freqLED = 10000;
         ESP_LOGI(TAG, "station "MACSTR" leave, AID=%d",
-                 MAC2STR(event->mac), event->aid);
+                 MAC2STR(event->mac), event->aid
+        );
     }
 } // wifi_event_handler
 
@@ -461,8 +462,10 @@ esp_err_t webserver_start(const webserver_ap_config_t *AP_cfg) {
   ESP_ERROR_CHECK(esp_event_handler_instance_register( WIFI_EVENT,
                                                        ESP_EVENT_ANY_ID,
                                                        &wifi_event_handler,
- 													   NULL,
- 													   NULL));
+ 													                             NULL,
+ 													                             NULL
+                                                      )
+  );
 
    wifi_config_t wifi_cfg = {0};
    size_t ssid_len = strlen(AP_cfg->ssid);
